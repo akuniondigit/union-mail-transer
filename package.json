@@ -11,6 +11,7 @@
     "validate": "office-addin-manifest validate manifest.xml",
     "start": "office-addin-debugging start manifest.xml",
     "stop": "office-addin-debugging stop manifest.xml",
+    "sideload": "office-addin-manifest sideload outlook",
     "test": "vitest run"
   },
   "dependencies": {
