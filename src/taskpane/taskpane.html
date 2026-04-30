@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <title>組合メール転送</title>
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  </head>
+  <body>
+    <main id="app">
+      <header>
+        <h1>組合メール転送</h1>
+        <p class="intro">Outlook の「転送」を押した後、このアドインで宛先・件名・本文を整えます。</p>
+      </header>
+
+      <section class="card" id="settings-card">
+        <h2>設定</h2>
+        <div class="row stack">
+          <label class="field">
+            <span>区</span>
+            <input type="text" id="setting-ku" placeholder="例: 24区" />
+          </label>
+          <label class="field">
+            <span>代表委員名</span>
+            <input type="text" id="setting-rep" placeholder="例: 山田 太郎" />
+          </label>
+          <div>
+            <button class="secondary" id="btn-save-settings">設定を保存</button>
+            <span class="hint" id="settings-status"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="lists-card">
+        <h2>リスト管理</h2>
+
+        <div class="list-block">
+          <div class="list-head">
+            <strong>送信先（組合）</strong>
+            <span class="count" id="count-to-union">件数: -</span>
+          </div>
+          <textarea id="csv-to-union" placeholder="taro@example.com&#10;hanako@example.com"></textarea>
+          <div class="row">
+            <button class="secondary" data-save="to-union">保存</button>
+            <span class="errors" id="err-to-union"></span>
+          </div>
+        </div>
+
+        <div class="list-block">
+          <div class="list-head">
+            <strong>送信先（組合＋経営管理職）</strong>
+            <span class="count" id="count-to-union-mgmt">件数: -</span>
+          </div>
+          <textarea id="csv-to-union-mgmt" placeholder="taro@example.com"></textarea>
+          <div class="row">
+            <button class="secondary" data-save="to-union-mgmt">保存</button>
+            <span class="errors" id="err-to-union-mgmt"></span>
+          </div>
+        </div>
+
+        <div class="list-block">
+          <div class="list-head">
+            <strong>Cc</strong>
+            <span class="count" id="count-cc">件数: -</span>
+          </div>
+          <textarea id="csv-cc" placeholder="taro@example.com"></textarea>
+          <div class="row">
+            <button class="secondary" data-save="cc">保存</button>
+            <span class="errors" id="err-cc"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="dispatch-card">
+        <h2>送信内容</h2>
+        <fieldset>
+          <legend>送信先</legend>
+          <label><input type="radio" name="to-list" value="to-union" checked /> 組合</label>
+          <label><input type="radio" name="to-list" value="to-union-mgmt" /> 組合＋経営管理職</label>
+        </fieldset>
+      </section>
+
+      <section class="card">
+        <button id="btn-forward" class="primary">宛先・件名・本文を整える</button>
+        <p class="status" id="status"></p>
+        <p class="hint" id="hint"></p>
+      </section>
+    </main>
+  </body>
+</html>
