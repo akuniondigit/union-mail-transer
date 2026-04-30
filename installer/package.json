@@ -5,11 +5,7 @@
   "main": "index.js",
   "private": true,
   "scripts": {
-    "build": "npx @yao-pkg/pkg index.js --config pkg.config.json --targets node18-win-x64 --output dist/install-addin.exe",
-    "postbuild": "node copy-native.js"
-  },
-  "dependencies": {
-    "@microsoft/teamsapp-cli": "3.0.2"
+    "build": "npx @yao-pkg/pkg index.js --targets node18-win-x64 --output dist/install-addin.exe"
   },
   "devDependencies": {
     "@yao-pkg/pkg": "^5.12.0"

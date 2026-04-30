@@ -5,10 +5,14 @@ const https = require("https");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const readline = require("readline");
+const { execSync } = require("child_process");
 
 const MANIFEST_URL =
   "https://akuniondigit.github.io/union-mail-transer/manifest.xml";
+const ADDIN_ID = "59b57c92-0f93-46a1-aa9d-342b0c9b6fd4";
+const MANIFEST_DIR = path.join(os.homedir(), "AppData", "Roaming", "UnionMailAddin");
+const MANIFEST_PATH = path.join(MANIFEST_DIR, "manifest.xml");
+const REG_KEY = `HKCU\\Software\\Microsoft\\Office\\16.0\\WEF\\Developer\\${ADDIN_ID}`;
 
 const LOG_PATH = path.join(
   path.dirname(process.execPath || __filename),
@@ -17,114 +21,72 @@ const LOG_PATH = path.join(
 const logStream = fs.createWriteStream(LOG_PATH, { flags: "w" });
 
 function ts() { return new Date().toISOString(); }
-function log(...args) {
-  const line = `[${ts()}] ${args.join(" ")}`;
-  console.log(...args);
-  logStream.write(line + "\n");
-}
-function logErr(...args) {
-  const line = `[${ts()}] ERROR: ${args.join(" ")}`;
-  console.error(...args);
-  logStream.write(line + "\n");
+function log(msg) {
+  console.log(msg);
+  logStream.write(`[${ts()}] ${msg}\n`);
 }
 
-// Guaranteed exit handler (synchronous, always called even via process.exit)
-process.on("exit", (code) => {
-  try { fs.appendFileSync(LOG_PATH, `[${ts()}] exit event: code=${code}\n`); } catch {}
+process.on("exit", () => {
+  try { logStream.end(); } catch {}
 });
-
-// Tee stdout/stderr
-const origOut = process.stdout.write.bind(process.stdout);
-process.stdout.write = (chunk, enc, cb) => { logStream.write(chunk); return origOut(chunk, enc, cb); };
-const origErr = process.stderr.write.bind(process.stderr);
-process.stderr.write = (chunk, enc, cb) => { logStream.write(chunk); return origErr(chunk, enc, cb); };
-
-// Hook process.exit (may not fire if webpack bundle captured original reference)
-const _exit = process.exit.bind(process);
-process.exit = (code) => {
-  fs.appendFileSync(LOG_PATH, `[${ts()}] process.exit(${code ?? 0})\n`);
-  _exit(code);
-};
-
-process.on("uncaughtException", (err) => {
-  fs.appendFileSync(LOG_PATH, `[${ts()}] uncaughtException: ${err.stack || err.message}\n`);
-  console.error("ERROR:", err.message);
-  waitKey().then(() => _exit(1));
-});
-process.on("unhandledRejection", (reason) => {
-  fs.appendFileSync(LOG_PATH, `[${ts()}] unhandledRejection: ${String(reason)}\n`);
-});
-
-function waitKey() {
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    rl.question("\n何かキーを押すと終了します...", () => { rl.close(); resolve(); });
-  });
-}
 
 function downloadFile(url, dest) {
   return new Promise((resolve, reject) => {
-    log(`GET ${url}`);
     const file = fs.createWriteStream(dest);
-    https
-      .get(url, (res) => {
-        log(`HTTP ${res.statusCode}`);
-        if (res.statusCode !== 200) {
-          reject(new Error(`HTTP ${res.statusCode}`));
-          return;
-        }
-        res.pipe(file);
-        file.on("finish", () => file.close(resolve));
-      })
-      .on("error", (err) => { fs.unlink(dest, () => {}); reject(err); });
+    https.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`HTTP ${res.statusCode}`));
+        return;
+      }
+      res.pipe(file);
+      file.on("finish", () => file.close(resolve));
+    }).on("error", (err) => { fs.unlink(dest, () => {}); reject(err); });
   });
+}
+
+function reg(args) {
+  execSync(`reg ${args}`, { stdio: "pipe" });
 }
 
 async function main() {
   log("=== 組合メール転送アドイン インストーラー ===");
-  log(`Node: ${process.version}  Platform: ${process.platform}`);
-  log(`exe: ${process.execPath}`);
-  log(`log: ${LOG_PATH}`);
-
-  // Probe keytar availability
-  try {
-    const keytar = require("keytar");
-    log(`keytar: OK (getPassword=${typeof keytar.getPassword})`);
-  } catch (e) {
-    log(`keytar: LOAD FAILED — ${e.message}`);
-  }
-
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "union-addin-"));
-  const manifestPath = path.join(tmpDir, "manifest.xml");
-  log(`tmpDir: ${tmpDir}`);
+  log(`保存先: ${MANIFEST_PATH}`);
+  log(`ログ:   ${LOG_PATH}`);
 
   try {
-    log("Downloading manifest...");
-    await downloadFile(MANIFEST_URL, manifestPath);
-    log("Download OK");
+    // 1. マニフェスト保存先を作成
+    fs.mkdirSync(MANIFEST_DIR, { recursive: true });
 
-    log("Running teamsapp install...");
-    process.argv = [
-      process.argv[0],
-      "teamsapp",
-      "install",
-      "--xml-path",
-      manifestPath,
-      "--interactive",
-      "true",
-      "--verbose",
-      "--debug",
-    ];
-    log(`argv: ${process.argv.join(" ")}`);
+    // 2. manifest.xml をダウンロード
+    log("マニフェストをダウンロード中...");
+    await downloadFile(MANIFEST_URL, MANIFEST_PATH);
+    log("ダウンロード完了");
 
-    require("@microsoft/teamsapp-cli/lib");
+    // 3. レジストリに書き込み（Exchange を経由しないローカルインストール）
+    log("レジストリを設定中...");
+    reg(`add "${REG_KEY}" /f /v Manifest /t REG_SZ /d "${MANIFEST_PATH}"`);
+    reg(`add "${REG_KEY}" /f /v UseDirectDebugger /t REG_DWORD /d 0`);
+    reg(`add "${REG_KEY}" /f /v UseWebDebugger /t REG_DWORD /d 0`);
+    reg(`add "${REG_KEY}" /f /v UseLiveReload /t REG_DWORD /d 0`);
+    log("レジストリ設定完了");
+
+    log("");
+    log("✅ インストール完了！");
+    log("   Outlook を再起動するとアドインが使えます。");
+    log("");
   } catch (err) {
-    logErr(err.stack || err.message);
-    await waitKey();
-    _exit(1);
-  } finally {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    log(`❌ エラー: ${err.message}`);
+    console.error(err.stack);
+    process.exitCode = 1;
   }
+
+  // ウィンドウを閉じないよう待機
+  await new Promise((resolve) => {
+    process.stdout.write("何かキーを押すと終了します...");
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.once("data", resolve);
+  });
 }
 
 main();

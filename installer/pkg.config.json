@@ -1,9 +1,0 @@
-{
-  "assets": [
-    "node_modules/@microsoft/teamsapp-cli/lib/**",
-    "node_modules/keytar/build/Release/keytar.node"
-  ],
-  "scripts": [
-    "node_modules/@microsoft/teamsapp-cli/lib/index.js"
-  ]
-}

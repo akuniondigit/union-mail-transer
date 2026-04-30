@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # needed to create/update releases
+  contents: write
 
 jobs:
   build-installer:
@@ -31,12 +31,6 @@ jobs:
         working-directory: installer
         run: Get-ChildItem dist
 
-      - name: Create zip for distribution
-        working-directory: installer
-        run: |
-          Compress-Archive -Path dist\install-addin.exe, dist\keytar.node `
-            -DestinationPath dist\union-mail-addin-installer.zip -Force
-
       - name: Upload to GitHub Release (latest)
         uses: softprops/action-gh-release@v2
         with:
@@ -46,11 +40,10 @@ jobs:
             ## 組合メール転送アドイン インストーラー
 
             ### 使い方
-            1. `union-mail-addin-installer.zip` をダウンロードして展開
-            2. `install-addin.exe` をダブルクリック（初回はMicrosoftアカウントでログイン）
-            3. Outlookを再起動
+            1. `install-addin.exe` をダウンロードしてダブルクリック
+            2. 「何かキーを押すと終了します」が出たら任意のキーを押す
+            3. Outlook を再起動
 
-            > Node.js 不要。展開したフォルダ内の2ファイルは同じ場所に置いてください。
-          files: installer/dist/union-mail-addin-installer.zip
+            > Node.js・認証・管理者権限 すべて不要
+          files: installer/dist/install-addin.exe
           make_latest: true
-          prerelease: false
