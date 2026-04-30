@@ -28,32 +28,31 @@ function logErr(...args) {
   logStream.write(line + "\n");
 }
 
-// Tee stdout/stderr so teamsapp-cli output is captured
+// Guaranteed exit handler (synchronous, always called even via process.exit)
+process.on("exit", (code) => {
+  try { fs.appendFileSync(LOG_PATH, `[${ts()}] exit event: code=${code}\n`); } catch {}
+});
+
+// Tee stdout/stderr
 const origOut = process.stdout.write.bind(process.stdout);
 process.stdout.write = (chunk, enc, cb) => { logStream.write(chunk); return origOut(chunk, enc, cb); };
 const origErr = process.stderr.write.bind(process.stderr);
 process.stderr.write = (chunk, enc, cb) => { logStream.write(chunk); return origErr(chunk, enc, cb); };
 
-// Capture process.exit() calls (teamsapp-cli exits this way)
+// Hook process.exit (may not fire if webpack bundle captured original reference)
 const _exit = process.exit.bind(process);
 process.exit = (code) => {
   fs.appendFileSync(LOG_PATH, `[${ts()}] process.exit(${code ?? 0})\n`);
-  if (code === 0 || code == null) {
-    fs.appendFileSync(LOG_PATH, `[${ts()}] ✅ インストール完了\n`);
-  } else {
-    fs.appendFileSync(LOG_PATH, `[${ts()}] ❌ 失敗 (code=${code})\n`);
-  }
   _exit(code);
 };
 
-// Catch anything teamsapp-cli throws outside our try/catch
 process.on("uncaughtException", (err) => {
   fs.appendFileSync(LOG_PATH, `[${ts()}] uncaughtException: ${err.stack || err.message}\n`);
-  console.error("❌ 予期しないエラー:", err.message);
+  console.error("ERROR:", err.message);
   waitKey().then(() => _exit(1));
 });
 process.on("unhandledRejection", (reason) => {
-  fs.appendFileSync(LOG_PATH, `[${ts()}] unhandledRejection: ${reason}\n`);
+  fs.appendFileSync(LOG_PATH, `[${ts()}] unhandledRejection: ${String(reason)}\n`);
 });
 
 function waitKey() {
@@ -65,13 +64,13 @@ function waitKey() {
 
 function downloadFile(url, dest) {
   return new Promise((resolve, reject) => {
-    log(`📥 GET ${url}`);
+    log(`GET ${url}`);
     const file = fs.createWriteStream(dest);
     https
       .get(url, (res) => {
-        log(`   HTTP ${res.statusCode}`);
+        log(`HTTP ${res.statusCode}`);
         if (res.statusCode !== 200) {
-          reject(new Error(`HTTP ${res.statusCode} downloading manifest`));
+          reject(new Error(`HTTP ${res.statusCode}`));
           return;
         }
         res.pipe(file);
@@ -87,27 +86,36 @@ async function main() {
   log(`exe: ${process.execPath}`);
   log(`log: ${LOG_PATH}`);
 
+  // Probe keytar availability
+  try {
+    const keytar = require("keytar");
+    log(`keytar: OK (getPassword=${typeof keytar.getPassword})`);
+  } catch (e) {
+    log(`keytar: LOAD FAILED — ${e.message}`);
+  }
+
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "union-addin-"));
   const manifestPath = path.join(tmpDir, "manifest.xml");
   log(`tmpDir: ${tmpDir}`);
 
   try {
-    log("📥 マニフェストをダウンロード中...");
+    log("Downloading manifest...");
     await downloadFile(MANIFEST_URL, manifestPath);
-    log("✅ ダウンロード完了");
+    log("Download OK");
 
-    log("🔧 Outlookアドインをインストール中...");
+    log("Running teamsapp install...");
     process.argv = [
       process.argv[0],
       "teamsapp",
       "install",
       "--xml-path",
       manifestPath,
+      "--interactive",
+      "true",
     ];
     log(`argv: ${process.argv.join(" ")}`);
 
     require("@microsoft/teamsapp-cli/lib");
-    // teamsapp-cli calls process.exit() internally — code after here may not run
   } catch (err) {
     logErr(err.stack || err.message);
     await waitKey();
