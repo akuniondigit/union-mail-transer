@@ -1,0 +1,56 @@
+name: Build & Release Installer
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create/update releases
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install installer dependencies
+        working-directory: installer
+        run: npm ci
+
+      - name: Build standalone exe
+        working-directory: installer
+        run: npm run build
+
+      - name: List dist contents
+        working-directory: installer
+        run: Get-ChildItem dist
+
+      - name: Create zip for distribution
+        working-directory: installer
+        run: |
+          Compress-Archive -Path dist\install-addin.exe, dist\keytar.node `
+            -DestinationPath dist\union-mail-addin-installer.zip -Force
+
+      - name: Upload to GitHub Release (latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "最新インストーラー"
+          body: |
+            ## 組合メール転送アドイン インストーラー
+
+            ### 使い方
+            1. `union-mail-addin-installer.zip` をダウンロードして展開
+            2. `install-addin.exe` をダブルクリック（初回はMicrosoftアカウントでログイン）
+            3. Outlookを再起動
+
+            > Node.js 不要。展開したフォルダ内の2ファイルは同じ場所に置いてください。
+          files: installer/dist/union-mail-addin-installer.zip
+          make_latest: true
+          prerelease: false

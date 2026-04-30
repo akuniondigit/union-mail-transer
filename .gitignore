@@ -1,5 +1,7 @@
 node_modules/
 dist/
+installer/node_modules/
+installer/dist/
 .cache/
 .DS_Store
 .env
