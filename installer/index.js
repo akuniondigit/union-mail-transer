@@ -112,6 +112,8 @@ async function main() {
       manifestPath,
       "--interactive",
       "true",
+      "--verbose",
+      "--debug",
     ];
     log(`argv: ${process.argv.join(" ")}`);
 
