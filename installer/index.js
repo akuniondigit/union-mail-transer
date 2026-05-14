@@ -65,12 +65,10 @@ async function main() {
   }
 
   // ウィンドウを閉じないよう待機
-  await new Promise((resolve) => {
-    process.stdout.write("何かキーを押すと終了します...");
-    process.stdin.setRawMode(true);
-    process.stdin.resume();
-    process.stdin.once("data", resolve);
-  });
+  process.stdout.write("何かキーを押すと終了します...");
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.once("data", () => process.exit(process.exitCode || 0));
 }
 
 main();
