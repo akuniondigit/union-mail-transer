@@ -4,6 +4,11 @@
   "description": "Standalone installer for 組合メール転送 Outlook add-in",
   "main": "index.js",
   "private": true,
+  "pkg": {
+    "assets": [
+      "../manifest.xml"
+    ]
+  },
   "scripts": {
     "build": "npx @yao-pkg/pkg index.js --targets node18-win-x64 --output dist/install-addin.exe"
   },

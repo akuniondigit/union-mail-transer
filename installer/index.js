@@ -1,17 +1,15 @@
 #!/usr/bin/env node
 "use strict";
 
-const https = require("https");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { execSync } = require("child_process");
 
-const MANIFEST_URL =
-  "https://akuniondigit.github.io/union-mail-transer/manifest.xml";
 const ADDIN_ID = "59b57c92-0f93-46a1-aa9d-342b0c9b6fd4";
 const MANIFEST_DIR = path.join(os.homedir(), "AppData", "Roaming", "UnionMailAddin");
 const MANIFEST_PATH = path.join(MANIFEST_DIR, "manifest.xml");
+const BUNDLED_MANIFEST = path.join(__dirname, "..", "manifest.xml");
 const REG_KEY = `HKCU\\Software\\Microsoft\\Office\\16.0\\WEF\\Developer\\${ADDIN_ID}`;
 
 const LOG_PATH = path.join(
@@ -27,22 +25,8 @@ function log(msg) {
 }
 
 process.on("exit", () => {
-  try { logStream.end(); } catch {}
+  try { logStream.end(); } catch { }
 });
-
-function downloadFile(url, dest) {
-  return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(dest);
-    https.get(url, (res) => {
-      if (res.statusCode !== 200) {
-        reject(new Error(`HTTP ${res.statusCode}`));
-        return;
-      }
-      res.pipe(file);
-      file.on("finish", () => file.close(resolve));
-    }).on("error", (err) => { fs.unlink(dest, () => {}); reject(err); });
-  });
-}
 
 function reg(args) {
   execSync(`reg ${args}`, { stdio: "pipe" });
@@ -57,10 +41,10 @@ async function main() {
     // 1. マニフェスト保存先を作成
     fs.mkdirSync(MANIFEST_DIR, { recursive: true });
 
-    // 2. manifest.xml をダウンロード
-    log("マニフェストをダウンロード中...");
-    await downloadFile(MANIFEST_URL, MANIFEST_PATH);
-    log("ダウンロード完了");
+    // 2. 同梱の manifest.xml を配置
+    log("マニフェストを配置中...");
+    fs.copyFileSync(BUNDLED_MANIFEST, MANIFEST_PATH);
+    log("マニフェスト配置完了");
 
     // 3. レジストリに書き込み（Exchange を経由しないローカルインストール）
     log("レジストリを設定中...");
