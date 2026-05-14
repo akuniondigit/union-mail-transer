@@ -9,7 +9,7 @@ const { execSync } = require("child_process");
 const ADDIN_ID = "59b57c92-0f93-46a1-aa9d-342b0c9b6fd4";
 const MANIFEST_DIR = path.join(os.homedir(), "AppData", "Roaming", "UnionMailAddin");
 const MANIFEST_PATH = path.join(MANIFEST_DIR, "manifest.xml");
-const BUNDLED_MANIFEST = path.join(__dirname, "..", "manifest.xml");
+const BUNDLED_MANIFEST = path.join(__dirname, "manifest.xml");
 const REG_KEY = `HKCU\\Software\\Microsoft\\Office\\16.0\\WEF\\Developer\\${ADDIN_ID}`;
 
 const LOG_PATH = path.join(

@@ -6,11 +6,11 @@
   "private": true,
   "pkg": {
     "assets": [
-      "../manifest.xml"
+      "manifest.xml"
     ]
   },
   "scripts": {
-    "build": "npx @yao-pkg/pkg index.js --targets node18-win-x64 --output dist/install-addin.exe"
+    "build": "copy ..\\manifest.xml manifest.xml && npx @yao-pkg/pkg index.js --targets node18-win-x64 --output dist/install-addin.exe"
   },
   "devDependencies": {
     "@yao-pkg/pkg": "^5.12.0"
