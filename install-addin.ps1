@@ -1,19 +1,32 @@
-<#
+﻿<#
 .SYNOPSIS
   組合メール転送アドインを Outlook にインストールします。
 
 .DESCRIPTION
-  @microsoft/teamsapp-cli 経由でマニフェストを Exchange メールボックスに登録します。
+  同梱の Node.js と @microsoft/teamsapp-cli 経由でマニフェストを
+  Exchange メールボックスに登録します。
   Microsoft 365 に Windows 認証またはブラウザでサインインするだけで完了します。
 
 .NOTES
-  - Node.js (v18 以上) が必要です: https://nodejs.org/
   - Office 365 / Exchange Online が前提です。
   - 管理者権限は不要です。初回のみ実行してください。
 #>
 
 $ErrorActionPreference = "Stop"
+$ScriptDir = $PSScriptRoot
 $ManifestUrl = "https://akuniondigit.github.io/union-mail-transer/manifest.xml"
+
+# 同梱 Node.js を PATH の先頭に追加
+$nodePath = Join-Path $ScriptDir "node"
+if (Test-Path (Join-Path $nodePath "node.exe")) {
+    $env:PATH = "$nodePath;$env:PATH"
+}
+else {
+    Write-Host "  [エラー] 同梱の Node.js が見つかりません。" -ForegroundColor Red
+    Write-Host "           zipを展開し直してください。" -ForegroundColor Yellow
+    Read-Host "  Enterキーで終了"
+    exit 1
+}
 
 Write-Host ""
 Write-Host "=== 組合メール転送アドイン インストーラー ===" -ForegroundColor Yellow
@@ -21,15 +34,8 @@ Write-Host ""
 
 # 1. Node.js 確認
 Write-Host "  [1/3] Node.js を確認中..." -ForegroundColor Cyan
-try {
-    $nodeVersion = node --version 2>&1
-    Write-Host "        OK ($nodeVersion)" -ForegroundColor Green
-} catch {
-    Write-Host "  [エラー] Node.js が見つかりません。" -ForegroundColor Red
-    Write-Host "           https://nodejs.org/ からインストールしてください。" -ForegroundColor Yellow
-    Read-Host "  Enterキーで終了"
-    exit 1
-}
+$nodeVersion = & (Join-Path $nodePath "node.exe") --version 2>&1
+Write-Host "        OK ($nodeVersion)" -ForegroundColor Green
 
 # 2. マニフェストを一時フォルダに保存
 Write-Host "  [2/3] マニフェストを取得中..." -ForegroundColor Cyan
@@ -39,7 +45,8 @@ $manifestPath = Join-Path $tmpDir "manifest.xml"
 try {
     Invoke-WebRequest -Uri $ManifestUrl -OutFile $manifestPath -UseBasicParsing
     Write-Host "        OK" -ForegroundColor Green
-} catch {
+}
+catch {
     Write-Host "  [エラー] マニフェストの取得に失敗: $_" -ForegroundColor Red
     Read-Host "  Enterキーで終了"
     exit 1
@@ -49,22 +56,26 @@ try {
 Write-Host "  [3/3] アドインを登録中..." -ForegroundColor Cyan
 Write-Host "        Windows 認証またはブラウザで Microsoft 365 にサインインします。" -ForegroundColor Yellow
 Write-Host ""
-try {
-    Push-Location $tmpDir
-    $result = npx --yes "@microsoft/teamsapp-cli" install --xml-path $manifestPath 2>&1
-    Pop-Location
-    Write-Host ($result | Out-String)
+$npxCmd = Join-Path $nodePath "npx.cmd"
+Push-Location $tmpDir
+$env:NODE_NO_WARNINGS = "1"
+$ErrorActionPreference = "Continue"
+$result = & $npxCmd --yes "@microsoft/teamsapp-cli" install --xml-path $manifestPath 2>&1 | Where-Object { $_ -notmatch "DeprecationWarning|trace-deprecation" }
+$exitCode = $LASTEXITCODE
+$ErrorActionPreference = "Stop"
+Pop-Location
+Write-Host ($result | Out-String)
 
-    if ($result -match "Successfully registered") {
-        Write-Host "  登録成功！" -ForegroundColor Green
-    } elseif ($result -match "already") {
-        Write-Host "  すでにインストール済みです（スキップ）" -ForegroundColor Green
-    }
-} catch {
-    Pop-Location -ErrorAction SilentlyContinue
-    Write-Host "  [エラー] $_" -ForegroundColor Red
+if ($exitCode -ne 0) {
+    Write-Host "  [エラー] teamsapp-cli がエラーで終了しました (code $exitCode)" -ForegroundColor Red
     Read-Host "  Enterキーで終了"
     exit 1
+}
+elseif ($result -match "TitleId|AppId") {
+    Write-Host "  登録成功！" -ForegroundColor Green
+}
+elseif ($result -match "already") {
+    Write-Host "  すでにインストール済みです（スキップ）" -ForegroundColor Green
 }
 
 # 後片付け

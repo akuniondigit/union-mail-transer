@@ -15,21 +15,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "18"
+      - name: Download Node.js portable
+        run: |
+          $nodeVersion = "v20.18.1"
+          $url = "https://nodejs.org/dist/$nodeVersion/node-$nodeVersion-win-x64.zip"
+          Invoke-WebRequest -Uri $url -OutFile node.zip -UseBasicParsing
+          Expand-Archive node.zip -DestinationPath temp-node
+          New-Item -ItemType Directory -Path installer-dist/node -Force | Out-Null
+          Copy-Item temp-node/node-$nodeVersion-win-x64/* installer-dist/node/ -Recurse
 
-      - name: Install installer dependencies
-        working-directory: installer
-        run: npm ci
+      - name: Assemble installer zip
+        run: |
+          # ps1 を UTF-8 BOM 付きでコピー（Windows PowerShell 5.1 互換のため）
+          $content = [System.IO.File]::ReadAllText("install-addin.ps1")
+          $bomEncoding = [System.Text.UTF8Encoding]::new($true)
+          [System.IO.File]::WriteAllText("installer-dist/install-addin.ps1", $content, $bomEncoding)
+          Copy-Item install.bat installer-dist/
+          Compress-Archive -Path installer-dist/* -DestinationPath union-mail-addin-installer.zip
 
-      - name: Build standalone exe
-        working-directory: installer
-        run: npm run build
-
-      - name: List dist contents
-        working-directory: installer
-        run: Get-ChildItem dist
+      - name: List contents
+        run: |
+          Get-ChildItem installer-dist -Recurse | Select-Object FullName
+          (Get-Item union-mail-addin-installer.zip).Length / 1MB
 
       - name: Upload to GitHub Release (latest)
         uses: softprops/action-gh-release@v2
@@ -40,10 +47,11 @@ jobs:
             ## 組合メール転送アドイン インストーラー
 
             ### 使い方
-            1. `install-addin.exe` をダウンロードしてダブルクリック
-            2. 「何かキーを押すと終了します」が出たら任意のキーを押す
-            3. Outlook を再起動
+            1. `union-mail-addin-installer.zip` をダウンロードして展開
+            2. `install.bat` をダブルクリック
+            3. Microsoft 365 にサインイン
+            4. Outlook を再起動
 
-            > Node.js・認証・管理者権限 すべて不要
-          files: installer/dist/install-addin.exe
+            > 管理者権限不要・Node.js のインストール不要
+          files: union-mail-addin-installer.zip
           make_latest: true
