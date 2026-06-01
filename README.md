@@ -34,7 +34,21 @@
 補足:
 
 - ユーザー端末への Node.js 事前インストールは不要
-- 初回はセットアップに時間がかかるが、2回目以降はキャッシュ再利用で短縮される
+- インストーラーが使う Node.js / CLI は一時フォルダにのみ展開し、処理後に削除される
+- 既存のシステム Node.js は変更しない
+
+### 過去版キャッシュの削除（必要な場合のみ）
+
+過去の配布版でキャッシュ方式を使っていたユーザー向けに、
+専用キャッシュ削除ツールを配布できる。
+
+```bat
+cleanup-cache.bat
+```
+
+削除対象は次のフォルダのみ:
+
+- `%LOCALAPPDATA%\UnionMailTranserInstallerCache`
 
 ## 配布者向け準備
 
@@ -54,14 +68,10 @@
 
 ### 初回実行が遅い理由
 
-初回のみ次を実行するため時間がかかる:
+毎回次を実行するため時間がかかる:
 
 1. Node.js ポータブルの取得
 2. TeamsApp CLI の取得
-
-キャッシュ保存先:
-
-- `%LOCALAPPDATA%\UnionMailTranserInstallerCache`
 
 ### 証明書エラー（SELF_SIGNED_CERT_IN_CHAIN など）
 

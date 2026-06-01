@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Node.js ポータブル版を一時的にダウンロードし、teamsapp-cli 経由で
-  Exchange Online にアドインを登録します。完了後すべて自動削除されます。
+  Exchange Online にアドインを登録します。処理後は取得物を削除します。
 
 .NOTES
   - Office 365 / Exchange Online が前提です。
@@ -16,7 +16,6 @@ $ManifestUrl = "https://akuniondigit.github.io/union-mail-transer/manifest.xml"
 $NodeVersion = "v20.18.1"
 $NodeZipUrl = "https://nodejs.org/dist/$NodeVersion/node-$NodeVersion-win-x64.zip"
 $TmpBase = Join-Path $env:TEMP "union-addin-setup"
-$CacheBase = Join-Path $env:LOCALAPPDATA "UnionMailTranserInstallerCache"
 $CliVersion = "3.0.2"
 
 function Invoke-Download {
@@ -53,24 +52,20 @@ Write-Host ""
 
 # 1. Node.js ポータブルをダウンロード
 Write-Host "  [1/3] セットアップ環境を準備中..." -ForegroundColor Cyan
-Write-Host "        (初回のみ時間がかかります。2回目以降はキャッシュを使います)" -ForegroundColor Gray
-New-Item -ItemType Directory -Path $CacheBase -Force | Out-Null
+Write-Host "        (毎回セットアップを行います)" -ForegroundColor Gray
+Remove-Item $TmpBase -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $TmpBase -Force | Out-Null
 
-$nodeZipPath = Join-Path $CacheBase "node-$NodeVersion-win-x64.zip"
+$nodeZipPath = Join-Path $TmpBase "node-$NodeVersion-win-x64.zip"
 $nodeDirName = "node-$NodeVersion-win-x64"
-$nodePath = Join-Path $CacheBase $nodeDirName
-$npmCachePath = Join-Path $CacheBase "npm-cache"
-$cliInstallPath = Join-Path $CacheBase "teamsapp-cli-$CliVersion"
+$nodePath = Join-Path $TmpBase $nodeDirName
+$npmCachePath = Join-Path $TmpBase "npm-cache"
+$cliInstallPath = Join-Path $TmpBase "teamsapp-cli-$CliVersion"
 
-if (-not (Test-Path (Join-Path $nodePath "node.exe"))) {
-  if (-not (Test-Path $nodeZipPath)) {
-    Write-Host "        Node.js をダウンロード中..." -ForegroundColor Gray
-    Invoke-Download -Uri $NodeZipUrl -OutFile $nodeZipPath
-  }
-  Write-Host "        Node.js を展開中..." -ForegroundColor Gray
-  Expand-Archive -Path $nodeZipPath -DestinationPath $CacheBase -Force
-}
+Write-Host "        Node.js をダウンロード中..." -ForegroundColor Gray
+Invoke-Download -Uri $NodeZipUrl -OutFile $nodeZipPath
+Write-Host "        Node.js を展開中..." -ForegroundColor Gray
+Expand-Archive -Path $nodeZipPath -DestinationPath $TmpBase -Force
 
 $npmCmd = Join-Path $nodePath "npm.cmd"
 $cliCmd = Join-Path $cliInstallPath "node_modules\.bin\teamsapp.cmd"
@@ -138,6 +133,7 @@ Write-Host "============================================" -ForegroundColor Green
 Write-Host "  インストール完了！" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
+
 Write-Host "  Outlook を再起動してください。" -ForegroundColor White
 Write-Host "  メールを転送 > リボンに [組合メール転送] が表示されます。" -ForegroundColor White
 Write-Host ""
